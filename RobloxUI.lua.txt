@@ -1,0 +1,652 @@
+--[[
+    RobloxUI Library - Complete Edition
+    A comprehensive UI library for Roblox
+    
+    Features:
+    - Multiple UI components (Button, Label, Input, Frame, Image, ScrollFrame)
+    - Theming system
+    - Animation support
+    - Event handling
+    - Responsive design
+]]
+
+local RobloxUI = {}
+RobloxUI.__index = RobloxUI
+
+-- Services
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local ContentProvider = game:GetService("ContentProvider")
+local Players = game:GetService("Players")
+
+-- Configuration
+RobloxUI.Config = {
+    DefaultTheme = {
+        Primary = Color3.fromRGB(65, 105, 225),
+        Secondary = Color3.fromRGB(100, 149, 237),
+        Background = Color3.fromRGB(255, 255, 255),
+        Text = Color3.fromRGB(50, 50, 50),
+        Accent = Color3.fromRGB(255, 165, 0),
+        Error = Color3.fromRGB(220, 20, 60),
+        Success = Color3.fromRGB(46, 204, 113),
+        Warning = Color3.fromRGB(255, 140, 0),
+        BorderRadius = UDim.new(0, 8),
+        FontFamily = Enum.Font.Gotham,
+        FontSize = 14,
+        Padding = UDim.new(0, 10),
+        AnimationDuration = 0.3,
+    }
+}
+
+-- Utility Modules
+local Theme = {}
+local Animation = {}
+local EventManager = {}
+local Layout = {}
+
+-- Theme Module
+Theme.activeTheme = RobloxUI.Config.DefaultTheme
+
+function Theme.setTheme(theme)
+    for key, value in pairs(theme) do
+        Theme.activeTheme[key] = value
+    end
+    return Theme.activeTheme
+end
+
+function Theme.getColor(colorName)
+    return Theme.activeTheme[colorName] or Color3.new(1, 1, 1)
+end
+
+function Theme.getValue(valueName)
+    return Theme.activeTheme[valueName]
+end
+
+-- Animation Module
+function Animation.tween(instance, properties, duration, easingStyle, easingDirection)
+    local tweenInfo = TweenInfo.new(
+        duration or 0.3,
+        easingStyle or Enum.EasingStyle.Quad,
+        easingDirection or Enum.EasingDirection.Out
+    )
+    
+    local tween = TweenService:Create(instance, tweenInfo, properties)
+    tween:Play()
+    return tween
+end
+
+function Animation.scaleElement(instance, scale, duration)
+    local originalSize = instance.Size
+    return Animation.tween(
+        instance,
+        {Size = UDim2.new(originalSize.X.Scale * scale, originalSize.X.Offset * scale, 
+                         originalSize.Y.Scale * scale, originalSize.Y.Offset * scale)},
+        duration or 0.3
+    )
+end
+
+function Animation.colorTween(instance, property, color, duration)
+    local properties = {}
+    properties[property] = color
+    return Animation.tween(instance, properties, duration or 0.3)
+end
+
+function Animation.fadeIn(instance, duration)
+    local originalTransparency = instance.BackgroundTransparency
+    instance.BackgroundTransparency = 1
+    return Animation.tween(instance, {BackgroundTransparency = originalTransparency}, duration or 0.3)
+end
+
+function Animation.fadeOut(instance, duration)
+    return Animation.tween(instance, {BackgroundTransparency = 1}, duration or 0.3)
+end
+
+-- EventManager Module
+EventManager.__index = EventManager
+
+function EventManager.new(instance)
+    local self = setmetatable({}, EventManager)
+    self.instance = instance
+    self.connections = {}
+    return self
+end
+
+function EventManager:connect(eventName, callback)
+    local event = self.instance[eventName]
+    local connection = event:Connect(callback)
+    table.insert(self.connections, connection)
+    return connection
+end
+
+function EventManager:disconnectAll()
+    for _, connection in ipairs(self.connections) do
+        connection:Disconnect()
+    end
+    self.connections = {}
+end
+
+-- Layout Module
+function Layout.createListLayout(parent, config)
+    config = config or {}
+    local listLayout = Instance.new("UIListLayout")
+    listLayout.Padding = config.Padding or UDim.new(0, 5)
+    listLayout.FillDirection = config.FillDirection or Enum.FillDirection.Vertical
+    listLayout.HorizontalAlignment = config.HorizontalAlignment or Enum.HorizontalAlignment.Left
+    listLayout.VerticalAlignment = config.VerticalAlignment or Enum.VerticalAlignment.Top
+    listLayout.SortOrder = config.SortOrder or Enum.SortOrder.LayoutOrder
+    listLayout.Parent = parent
+    return listLayout
+end
+
+function Layout.createGridLayout(parent, config)
+    config = config or {}
+    local gridLayout = Instance.new("UIGridLayout")
+    gridLayout.CellPadding = config.CellPadding or UDim2.new(0, 5, 0, 5)
+    gridLayout.CellSize = config.CellSize or UDim2.new(0, 100, 0, 100)
+    gridLayout.FillDirection = config.FillDirection or Enum.FillDirection.Horizontal
+    gridLayout.HorizontalAlignment = config.HorizontalAlignment or Enum.HorizontalAlignment.Left
+    gridLayout.VerticalAlignment = config.VerticalAlignment or Enum.VerticalAlignment.Top
+    gridLayout.SortOrder = config.SortOrder or Enum.SortOrder.LayoutOrder
+    gridLayout.Parent = parent
+    return gridLayout
+end
+
+-- Component Classes
+local Button = {}
+Button.__index = Button
+
+local Label = {}
+Label.__index = Label
+
+local Input = {}
+Input.__index = Input
+
+local Frame = {}
+Frame.__index = Frame
+
+local Image = {}
+Image.__index = Image
+
+local ScrollFrame = {}
+ScrollFrame.__index = ScrollFrame
+
+-- Button Component
+function Button.new(parent, config)
+    local self = setmetatable({}, Button)
+    
+    self.config = {
+        Text = config.Text or "Button",
+        Position = config.Position or UDim2.new(0.5, 0, 0.5, 0),
+        Size = config.Size or UDim2.new(0, 200, 0, 50),
+        AnchorPoint = config.AnchorPoint or Vector2.new(0.5, 0.5),
+        BackgroundColor = config.BackgroundColor or Theme.getColor("Primary"),
+        TextColor = config.TextColor or Theme.getColor("Background"),
+        BorderRadius = config.BorderRadius or Theme.getValue("BorderRadius"),
+        Font = config.Font or Theme.getValue("FontFamily"),
+        FontSize = config.FontSize or Theme.getValue("FontSize"),
+        Parent = config.Parent or parent,
+        HoverEffect = config.HoverEffect ~= false,
+        ClickEffect = config.ClickEffect ~= false,
+        Disabled = config.Disabled or false,
+    }
+    
+    self.instance = Instance.new("TextButton")
+    self.instance.Name = "RobloxUIButton"
+    self.instance.Text = self.config.Text
+    self.instance.Position = self.config.Position
+    self.instance.Size = self.config.Size
+    self.instance.AnchorPoint = self.config.AnchorPoint
+    self.instance.BackgroundColor3 = self.config.BackgroundColor
+    self.instance.TextColor3 = self.config.TextColor
+    self.instance.Font = self.config.Font
+    self.instance.TextSize = self.config.FontSize
+    self.instance.AutoButtonColor = false
+    self.instance.BorderSizePixel = 0
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = self.config.BorderRadius
+    corner.Parent = self.instance
+    
+    self.events = EventManager.new(self.instance)
+    
+    if self.config.HoverEffect then
+        self:_setupHoverAnimation()
+    end
+    
+    if self.config.ClickEffect then
+        self:_setupClickAnimation()
+    end
+    
+    self.instance.Parent = self.config.Parent
+    
+    return self
+end
+
+function Button:_setupHoverAnimation()
+    self.events:connect("MouseEnter", function()
+        if not self.config.Disabled then
+            local hoverColor = self.config.BackgroundColor:Lerp(Color3.new(1, 1, 1), 0.2)
+            Animation.colorTween(self.instance, "BackgroundColor3", hoverColor, 0.1)
+        end
+    end)
+    
+    self.events:connect("MouseLeave", function()
+        if not self.config.Disabled then
+            Animation.colorTween(self.instance, "BackgroundColor3", self.config.BackgroundColor, 0.1)
+        end
+    end)
+end
+
+function Button:_setupClickAnimation()
+    self.events:connect("MouseButton1Down", function()
+        if not self.config.Disabled then
+            self.instance.Size = UDim2.new(
+                self.config.Size.X.Scale * 0.95,
+                self.config.Size.X.Offset * 0.95,
+                self.config.Size.Y.Scale * 0.95,
+                self.config.Size.Y.Offset * 0.95
+            )
+        end
+    end)
+    
+    self.events:connect("MouseButton1Up", function()
+        if not self.config.Disabled then
+            self.instance.Size = self.config.Size
+        end
+    end)
+end
+
+function Button:onClick(callback)
+    self.events:connect("MouseButton1Click", function()
+        if not self.config.Disabled then
+            callback()
+        end
+    end)
+    return self
+end
+
+function Button:setText(text)
+    self.instance.Text = text
+    self.config.Text = text
+    return self
+end
+
+function Button:setBackgroundColor(color)
+    self.instance.BackgroundColor3 = color
+    self.config.BackgroundColor = color
+    return self
+end
+
+function Button:destroy()
+    self.events:disconnectAll()
+    self.instance:Destroy()
+end
+
+-- Label Component
+function Label.new(parent, config)
+    local self = setmetatable({}, Label)
+    
+    self.config = {
+        Text = config.Text or "Label",
+        Position = config.Position or UDim2.new(0.5, 0, 0.5, 0),
+        Size = config.Size or UDim2.new(0, 200, 0, 50),
+        AnchorPoint = config.AnchorPoint or Vector2.new(0.5, 0.5),
+        BackgroundTransparency = config.BackgroundTransparency or 1,
+        TextColor = config.TextColor or Theme.getColor("Text"),
+        Font = config.Font or Theme.getValue("FontFamily"),
+        FontSize = config.FontSize or Theme.getValue("FontSize"),
+        TextXAlignment = config.TextXAlignment or Enum.TextXAlignment.Center,
+        TextYAlignment = config.TextYAlignment or Enum.TextYAlignment.Center,
+        TextWrapped = config.TextWrapped ~= false,
+        Parent = config.Parent or parent,
+    }
+    
+    self.instance = Instance.new("TextLabel")
+    self.instance.Name = "RobloxUILabel"
+    self.instance.Text = self.config.Text
+    self.instance.Position = self.config.Position
+    self.instance.Size = self.config.Size
+    self.instance.AnchorPoint = self.config.AnchorPoint
+    self.instance.BackgroundTransparency = self.config.BackgroundTransparency
+    self.instance.TextColor3 = self.config.TextColor
+    self.instance.Font = self.config.Font
+    self.instance.TextSize = self.config.FontSize
+    self.instance.TextXAlignment = self.config.TextXAlignment
+    self.instance.TextYAlignment = self.config.TextYAlignment
+    self.instance.TextWrapped = self.config.TextWrapped
+    self.instance.BorderSizePixel = 0
+    
+    self.instance.Parent = self.config.Parent
+    
+    return self
+end
+
+function Label:setText(text)
+    self.instance.Text = text
+    self.config.Text = text
+    return self
+end
+
+function Label:setTextColor(color)
+    self.instance.TextColor3 = color
+    self.config.TextColor = color
+    return self
+end
+
+function Label:destroy()
+    self.instance:Destroy()
+end
+
+-- Input Component
+function Input.new(parent, config)
+    local self = setmetatable({}, Input)
+    
+    self.config = {
+        PlaceholderText = config.PlaceholderText or "Enter text...",
+        DefaultText = config.DefaultText or "",
+        Position = config.Position or UDim2.new(0.5, 0, 0.5, 0),
+        Size = config.Size or UDim2.new(0, 200, 0, 50),
+        AnchorPoint = config.AnchorPoint or Vector2.new(0.5, 0.5),
+        BackgroundColor = config.BackgroundColor or Color3.new(1, 1, 1),
+        TextColor = config.TextColor or Theme.getColor("Text"),
+        BorderColor = config.BorderColor or Theme.getColor("Primary"),
+        BorderThickness = config.BorderThickness or 2,
+        BorderRadius = config.BorderRadius or Theme.getValue("BorderRadius"),
+        Font = config.Font or Theme.getValue("FontFamily"),
+        FontSize = config.FontSize or Theme.getValue("FontSize"),
+        Parent = config.Parent or parent,
+    }
+    
+    self.container = Instance.new("Frame")
+    self.container.Name = "RobloxUIInputContainer"
+    self.container.Position = self.config.Position
+    self.container.Size = self.config.Size
+    self.container.AnchorPoint = self.config.AnchorPoint
+    self.container.BackgroundColor3 = self.config.BackgroundColor
+    self.container.BorderSizePixel = 0
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = self.config.BorderRadius
+    corner.Parent = self.container
+    
+    self.border = Instance.new("UIStroke")
+    self.border.Color = self.config.BorderColor
+    self.border.Thickness = self.config.BorderThickness
+    self.border.Parent = self.container
+    
+    self.textBox = Instance.new("TextBox")
+    self.textBox.Name = "InputField"
+    self.textBox.Text = self.config.DefaultText
+    self.textBox.PlaceholderText = self.config.PlaceholderText
+    self.textBox.Position = UDim2.new(0, 10, 0, 0)
+    self.textBox.Size = UDim2.new(1, -20, 1, 0)
+    self.textBox.BackgroundTransparency = 1
+    self.textBox.TextColor3 = self.config.TextColor
+    self.textBox.PlaceholderColor3 = Color3.new(0.7, 0.7, 0.7)
+    self.textBox.Font = self.config.Font
+    self.textBox.TextSize = self.config.FontSize
+    self.textBox.TextXAlignment = Enum.TextXAlignment.Left
+    self.textBox.ClearTextOnFocus = false
+    self.textBox.Parent = self.container
+    
+    self.events = EventManager.new(self.textBox)
+    
+    self.events:connect("Focused", function()
+        Animation.colorTween(self.border, "Color", Theme.getColor("Accent"), 0.2)
+    end)
+    
+    self.events:connect("FocusLost", function()
+        Animation.colorTween(self.border, "Color", self.config.BorderColor, 0.2)
+    end)
+    
+    self.container.Parent = self.config.Parent
+    
+    return self
+end
+
+function Input:getText()
+    return self.textBox.Text
+end
+
+function Input:setText(text)
+    self.textBox.Text = text
+    return self
+end
+
+function Input:onChange(callback)
+    self.events:connect("Changed", function()
+        callback(self.textBox.Text)
+    end)
+    return self
+end
+
+function Input:destroy()
+    self.events:disconnectAll()
+    self.container:Destroy()
+end
+
+-- Frame Component
+function Frame.new(parent, config)
+    local self = setmetatable({}, Frame)
+    
+    self.config = {
+        Position = config.Position or UDim2.new(0.5, 0, 0.5, 0),
+        Size = config.Size or UDim2.new(0, 200, 0, 200),
+        AnchorPoint = config.AnchorPoint or Vector2.new(0.5, 0.5),
+        BackgroundColor = config.BackgroundColor or Color3.new(1, 1, 1),
+        BackgroundTransparency = config.BackgroundTransparency or 0,
+        BorderRadius = config.BorderRadius or Theme.getValue("BorderRadius"),
+        Parent = config.Parent or parent,
+    }
+    
+    self.instance = Instance.new("Frame")
+    self.instance.Name = "RobloxUIFrame"
+    self.instance.Position = self.config.Position
+    self.instance.Size = self.config.Size
+    self.instance.AnchorPoint = self.config.AnchorPoint
+    self.instance.BackgroundColor3 = self.config.BackgroundColor
+    self.instance.BackgroundTransparency = self.config.BackgroundTransparency
+    self.instance.BorderSizePixel = 0
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = self.config.BorderRadius
+    corner.Parent = self.instance
+    
+    self.instance.Parent = self.config.Parent
+    
+    return self
+end
+
+function Frame:addChild(child)
+    child.Parent = self.instance
+    return self
+end
+
+function Frame:setBackgroundColor(color)
+    self.instance.BackgroundColor3 = color
+    self.config.BackgroundColor = color
+    return self
+end
+
+function Frame:destroy()
+    self.instance:Destroy()
+end
+
+-- ScrollFrame Component
+function ScrollFrame.new(parent, config)
+    local self = setmetatable({}, ScrollFrame)
+    
+    self.config = {
+        Position = config.Position or UDim2.new(0.5, 0, 0.5, 0),
+        Size = config.Size or UDim2.new(0, 300, 0, 200),
+        AnchorPoint = config.AnchorPoint or Vector2.new(0.5, 0.5),
+        BackgroundColor = config.BackgroundColor or Color3.new(1, 1, 1),
+        BackgroundTransparency = config.BackgroundTransparency or 0,
+        BorderRadius = config.BorderRadius or Theme.getValue("BorderRadius"),
+        ScrollBarThickness = config.ScrollBarThickness or 6,
+        ScrollBarColor = config.ScrollBarColor or Theme.getColor("Primary"),
+        Parent = config.Parent or parent,
+    }
+    
+    self.instance = Instance.new("ScrollingFrame")
+    self.instance.Name = "RobloxUIScrollFrame"
+    self.instance.Position = self.config.Position
+    self.instance.Size = self.config.Size
+    self.instance.AnchorPoint = self.config.AnchorPoint
+    self.instance.BackgroundColor3 = self.config.BackgroundColor
+    self.instance.BackgroundTransparency = self.config.BackgroundTransparency
+    self.instance.BorderSizePixel = 0
+    self.instance.ScrollBarThickness = self.config.ScrollBarThickness
+    self.instance.ScrollBarImageColor3 = self.config.ScrollBarColor
+    self.instance.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = self.config.BorderRadius
+    corner.Parent = self.instance
+    
+    self.listLayout = Instance.new("UIListLayout")
+    self.listLayout.Padding = UDim.new(0, 10)
+    self.listLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    self.listLayout.Parent = self.instance
+    
+    self.instance.Parent = self.config.Parent
+    
+    return self
+end
+
+function ScrollFrame:addChild(child)
+    child.Parent = self.instance
+    return self
+end
+
+function ScrollFrame:destroy()
+    self.instance:Destroy()
+end
+
+-- Image Component
+function Image.new(parent, config)
+    local self = setmetatable({}, Image)
+    
+    self.config = {
+        Image = config.Image or "",
+        Position = config.Position or UDim2.new(0.5, 0, 0.5, 0),
+        Size = config.Size or UDim2.new(0, 100, 0, 100),
+        AnchorPoint = config.AnchorPoint or Vector2.new(0.5, 0.5),
+        BackgroundColor = config.BackgroundColor or Color3.new(0.9, 0.9, 0.9),
+        BackgroundTransparency = config.BackgroundTransparency or 1,
+        BorderRadius = config.BorderRadius or Theme.getValue("BorderRadius"),
+        ScaleType = config.ScaleType or Enum.ScaleType.Fit,
+        Parent = config.Parent or parent,
+    }
+    
+    self.container = Instance.new("Frame")
+    self.container.Name = "RobloxUIImageContainer"
+    self.container.Position = self.config.Position
+    self.container.Size = self.config.Size
+    self.container.AnchorPoint = self.config.AnchorPoint
+    self.container.BackgroundColor3 = self.config.BackgroundColor
+    self.container.BackgroundTransparency = self.config.BackgroundTransparency
+    self.container.BorderSizePixel = 0
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = self.config.BorderRadius
+    corner.Parent = self.container
+    
+    self.image = Instance.new("ImageLabel")
+    self.image.Name = "Image"
+    self.image.Position = UDim2.new(0, 0, 0, 0)
+    self.image.Size = UDim2.new(1, 0, 1, 0)
+    self.image.BackgroundTransparency = 1
+    self.image.ScaleType = self.config.ScaleType
+    self.image.Image = self.config.Image
+    self.image.Parent = self.container
+    
+    self.container.Parent = self.config.Parent
+    
+    return self
+end
+
+function Image:setImage(image)
+    self.image.Image = image
+    self.config.Image = image
+    return self
+end
+
+function Image:destroy()
+    self.container:Destroy()
+end
+
+-- Main RobloxUI Class
+function RobloxUI.new(parent)
+    local self = setmetatable({}, RobloxUI)
+    
+    self.ScreenGui = Instance.new("ScreenGui")
+    self.ScreenGui.Name = "RobloxUI"
+    self.ScreenGui.ResetOnSpawn = false
+    self.ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+    if parent then
+        self.ScreenGui.Parent = parent
+    else
+        local LocalPlayer = Players.LocalPlayer
+        if LocalPlayer then
+            self.ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+        end
+    end
+    
+    self.Theme = Theme
+    self.Animation = Animation
+    self.Layout = Layout
+    
+    return self
+end
+
+function RobloxUI:setTheme(theme)
+    Theme.setTheme(theme)
+    return self
+end
+
+function RobloxUI:getTheme()
+    return Theme.activeTheme
+end
+
+function RobloxUI:createButton(config)
+    return Button.new(self.ScreenGui, config)
+end
+
+function RobloxUI:createLabel(config)
+    return Label.new(self.ScreenGui, config)
+end
+
+function RobloxUI:createInput(config)
+    return Input.new(self.ScreenGui, config)
+end
+
+function RobloxUI:createFrame(config)
+    return Frame.new(self.ScreenGui, config)
+end
+
+function RobloxUI:createImage(config)
+    return Image.new(self.ScreenGui, config)
+end
+
+function RobloxUI:createScrollFrame(config)
+    return ScrollFrame.new(self.ScreenGui, config)
+end
+
+function RobloxUI:createLayout(parent, layoutType, config)
+    if layoutType == "List" then
+        return Layout.createListLayout(parent, config)
+    elseif layoutType == "Grid" then
+        return Layout.createGridLayout(parent, config)
+    end
+end
+
+function RobloxUI:destroy()
+    if self.ScreenGui then
+        self.ScreenGui:Destroy()
+    end
+end
+
+return RobloxUI
