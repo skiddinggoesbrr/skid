@@ -1,3 +1,4 @@
+local function buyme()
 local SeedShop8313 = Instance.new("ScreenGui", game:GetService('Players').LocalPlayer.PlayerGui)
 SeedShop8313.Name = "Seed_Shop"
 SeedShop8313.ClassName = "ScreenGui"
@@ -1998,3 +1999,5 @@ UIListLayout2009.ClassName = "UIListLayout"
 local ShecklesBuy7415 = Instance.new("ImageButton", Frame6048)
 ShecklesBuy7415.Name = "Sheckles_Buy"
 ShecklesBuy7415.ClassName = "ImageButton"
+end 
+buyme()
